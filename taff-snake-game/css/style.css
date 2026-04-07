@@ -172,6 +172,22 @@ body {
   min-height: 30px;
 }
 
+.nightmare-text {
+  margin-top: 10px;
+  padding: 15px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 5px;
+  color: #ff4444;
+  font-size: 16px;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
 /* 游戏结束全屏界面 */
 .game-over-screen {
   position: fixed;
@@ -412,6 +428,8 @@ body {
   color: #ff4444;
   border: 2px solid #ff4444;
 }
+
+
 
 #nightmare-btn:hover {
   background-color: #3c3c3c;
