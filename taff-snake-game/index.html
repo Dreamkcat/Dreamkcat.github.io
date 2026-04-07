@@ -20,6 +20,9 @@
   <audio id="nightmareBgm" loop>
     <source src="bgm/恶梦.mp3" type="audio/mpeg">
   </audio>
+  <audio id="counterBgm" loop>
+    <source src="bgm/反击.mp3" type="audio/mpeg">
+  </audio>
   <audio id="nightmareIntro" preload="auto">
     <source src="audio/taff才不是小恶魔呢.wav" type="audio/wav">
   </audio>
@@ -97,8 +100,9 @@
       <div class="tutorial-section">
         <h3>TaFF恶梦难度</h3>
         <ul>
-          <li>开场播放"taff才不是小恶魔呢"音效。</li>
-          <li>BGM替换为"恶梦"。</li>
+          <li>开场播放"梦魇来袭"音效，提示"taff入侵了你的游戏！快去关注taff喵吧，我才不会告诉你只要通关了噩梦就会恢复正常呢"。</li>
+          <li>BGM替换为"恶梦"，且无法关闭，除非通关。</li>
+          <li>整个游戏主题变为黑红配色，棋盘格也变成黑底红线。</li>
           <li>有两只Taff喵：一只大Taff和一只小Taff。</li>
           <li>小Taff只有大Taff的50%大小，不会吃胖，速度也不会减小。</li>
           <li>小Taff吃到面包会隐身0.5秒。</li>
@@ -106,6 +110,7 @@
           <li>吃了反击道具后，面包会变成战斗形态。</li>
           <li>战斗形态下，只有大Taff会对你造成伤害。</li>
           <li>你可以吃掉小Taff获得胜利，播放"恶梦过关"音效和"恶梦通关"视频。</li>
+          <li>只有真正通关了噩梦模式，游戏才会恢复正常。</li>
         </ul>
       </div>
     </div>
@@ -117,6 +122,7 @@
     <div class="top-controls">
       <button id="restart-btn">重新开始</button>
       <button id="back-btn">返回主菜单</button>
+      <button id="bgm-toggle-btn">关闭BGM</button>
     </div>
     <h1>豪士逃脱大作战</h1>
     <div class="game-info">
@@ -129,6 +135,7 @@
     <div class="game-controls">
       <p>控制: W/A/S/D 或 方向键</p>
     </div>
+    <div id="nightmare-text" class="nightmare-text"></div>
     <div id="game-message" class="game-message"></div>
   </div>
 
