@@ -42,14 +42,16 @@ const gameState = {
     direction: 'right',
     speed: config.taffSpeed, // 当前速度
     size: config.taffSize, // 当前大小
-    collisionMultiplier: 1 // 碰撞检测倍数
+    collisionMultiplier: 1, // 碰撞检测倍数
+    isSplit: false, // 是否分裂
+    splitBody: null // 分裂出来的Taff身体
   },
   smallTaff: {
     x: 18, // 小Taff初始位置
     y: 18,
     direction: 'left',
     speed: config.taffSpeed * 0.24, // 小Taff速度减少80%后再快20%
-    size: 0.625, // 小Taff大小为大Taff的62.5%（增加25%）
+    size: 1, // 小Taff大小与面包相同
     isInvisible: false, // 是否隐身
     invisibleTimer: 0, // 隐身计时器
     invisibleMode: false, // 是否启用特殊隐身模式
@@ -66,7 +68,66 @@ const gameState = {
   message: '',
   propCount: 0, // 吃到的道具数量
   gameWin: false, // 游戏胜利状态
-  showCounterProp: false // 是否显示反击道具
+  showCounterProp: false, // 是否显示反击道具
+  counterModeTime: 0, // 反击模式持续时间（毫秒）
+  screenShakeIntensity: 0, // 画面晃动强度
+  gridCount: 20, // 棋盘格数量
+  breadInCorner: false, // 面包是否在墙角
+  breadPositionTimer: 0, // 面包位置计时器
+  originalTaffSpeed: config.taffSpeed, // 原始大Taff速度
+  originalSmallTaffSpeed: config.taffSpeed * 0.24, // 原始小Taff速度
+  // 恶梦模式文字显示
+  currentText: '', // 当前显示的文字
+  textTimer: 0, // 文字显示计时器
+  textDuration: 3000, // 文字显示持续时间
+  textDisplayed: false, // 是否已经显示过文字
+  // 面包移动距离跟踪
+  breadMoveDistance: 0, // 面包移动的总距离
+  lastBreadPosition: { x: 10, y: 10 }, // 面包的上一个位置
+  // BGM开关状态
+  bgmEnabled: true, // BGM是否启用
+  // 禁止面包屑掉落状态
+  noCrumbs: false, // 是否禁止面包屑掉落
+  noCrumbsTime: 0, // 禁止面包屑掉落的剩余时间（毫秒）
+  // 文字数组（只保留中文）
+  nightmareTexts: {
+    summon: [
+      '你不是神明…… 但你的灵魂仍将是我的盛宴！',
+      '神明吞噬者，蠕虫之至高神！',
+      '在真神面前颤抖吧，你这微不足道的凡人！'
+    ],
+    combat: [
+      '被无尽宇宙啃噬的滋味如何？',
+      '你管这叫闪避？可悲！',
+      '你的努力毫无意义。我将吞噬一切！',
+      '仰望天空吧，它已为你的死期染成深紫！',
+      '感受吞噬者的怒火吧！'
+    ],
+    phase2: [
+      '还没结束呢，小子！我是不朽的！',
+      '现在你面对的是我的真身！在神明吞噬者面前跪下！',
+      '你的宇宙将被撕成原子！'
+    ],
+    lowHealth: [
+      '可悲的生物，你甚至无法承受我的凝视！',
+      '你的哀嚎对我不存在的耳朵来说如同天籁！',
+      '在这碎裂的宇宙中发出你最后的哀嚎吧！'
+    ],
+    defeat: [
+      '又一个灵魂被吞噬！这场盛宴永无止境！',
+      '你只是顿美味的点心，仅此而已。',
+      '我是万物的终焉！我是神明吞噬者！'
+    ],
+    rareDefeat: [
+      '不…… 可能…… 虚空…… 吞噬…… 一切……'
+    ],
+    move: [
+      '你以为你能逃脱吗？',
+      '你的每一步都在接近死亡！',
+      '我能闻到你的恐惧！',
+      '逃跑吧，我喜欢追逐的感觉！'
+    ]
+  }
 };
 
 // 音效对象
@@ -81,8 +142,23 @@ const sounds = {
   nightmareWin: new Audio('audio/噩梦过关.wav'),
   combatMode: new Audio('audio/我的刀盾.MP3'),
   notTang: new Audio('audio/才不唐呢.wav'),
-  likeYou: new Audio('audio/最喜欢你啦.wav')
+  likeYou: new Audio('audio/最喜欢你啦.wav'),
+  nightmareInvasion: new Audio('audio/梦魇来袭.wav')
 };
+
+// 随机播放语音（除了恶梦通关）
+function playRandomVoice() {
+  // 可选的语音列表（排除恶梦通关）
+  const voiceKeys = ['nightmareIntro', 'notTang', 'likeYou', 'follow', 'combatMode'];
+  const randomKey = voiceKeys[Math.floor(Math.random() * voiceKeys.length)];
+  const sound = sounds[randomKey];
+  if (sound) {
+    sound.currentTime = 0;
+    sound.play().catch(e => {
+      console.log('语音播放失败:', e);
+    });
+  }
+}
 
 // 视频元素
 const winVideo = document.createElement('video');
@@ -107,6 +183,7 @@ const treasureTypes = [
 const mainMenuBgm = document.getElementById('mainMenuBgm');
 const gameBgm = document.getElementById('gameBgm');
 const nightmareBgm = document.getElementById('nightmareBgm');
+const counterBgm = document.getElementById('counterBgm');
 const nightmareIntro = document.getElementById('nightmareIntro');
 const nightmareWin = document.getElementById('nightmareWin');
 const mainMenu = document.getElementById('main-menu');
@@ -171,6 +248,8 @@ const scoreElement = document.getElementById('score');
 const breadSpeedElement = document.getElementById('bread-speed');
 const taffSizeElement = document.getElementById('taff-size');
 const gameMessageElement = document.getElementById('game-message');
+const nightmareTextElement = document.getElementById('nightmare-text');
+const bgmToggleBtn = document.getElementById('bgm-toggle-btn');
 
 // 键盘控制
 const keys = {
@@ -228,6 +307,18 @@ function initGame() {
   gameState.propCount = 0; // 重置道具计数
   gameState.gameWin = false; // 重置游戏胜利状态
   gameState.showCounterProp = false; // 重置反击道具显示状态
+  gameState.counterModeTime = 0; // 重置反击模式时间
+  gameState.screenShakeIntensity = 0; // 重置画面晃动强度
+  gameState.gridCount = 20; // 重置棋盘格数量
+  // 重置恶梦模式文字显示状态
+  gameState.currentText = '';
+  gameState.textTimer = 0;
+  gameState.textDisplayed = false;
+  // 重置面包移动距离跟踪
+  gameState.breadMoveDistance = 0;
+  gameState.lastBreadPosition = { x: gameState.bread.x, y: gameState.bread.y };
+  // 重置BGM开关状态
+  gameState.bgmEnabled = true;
 
   // 重置配置
   config.fragmentDropRate = 1; // 重置碎片掉落率
@@ -271,17 +362,36 @@ function updateUI() {
 // 绘制游戏
 function drawGame() {
   // 清空画布
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (gameState.difficulty === 'nightmare') {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // 应用画面晃动效果
+  if (gameState.difficulty === 'nightmare' && gameState.bread.isCombatMode) {
+    const shakeX = (Math.random() - 0.5) * gameState.screenShakeIntensity * 0.5;
+    const shakeY = (Math.random() - 0.5) * gameState.screenShakeIntensity * 0.5;
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+  }
 
   // 绘制网格
-  ctx.strokeStyle = '#ccc';
-  for (let i = 0; i < canvas.width; i += config.gridSize) {
+  if (gameState.difficulty === 'nightmare') {
+    ctx.strokeStyle = '#ff4444';
+  } else {
+    ctx.strokeStyle = '#ccc';
+  }
+  const gridCount = gameState.gridCount;
+  const gridSize = canvas.width / gridCount;
+  for (let i = 0; i <= canvas.width; i += gridSize) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
     ctx.lineTo(i, canvas.height);
     ctx.stroke();
   }
-  for (let i = 0; i < canvas.height; i += config.gridSize) {
+  for (let i = 0; i <= canvas.height; i += gridSize) {
     ctx.beginPath();
     ctx.moveTo(0, i);
     ctx.lineTo(canvas.width, i);
@@ -297,66 +407,94 @@ function drawGame() {
 
     // 绘制碎片，设置不透明度
     ctx.globalAlpha = opacity;
-    ctx.drawImage(breadCrumbImg, fragment.x * config.gridSize, fragment.y * config.gridSize, config.gridSize, config.gridSize);
+    ctx.drawImage(breadCrumbImg, fragment.x * gridSize, fragment.y * gridSize, gridSize, gridSize);
   });
   // 重置不透明度
   ctx.globalAlpha = 1;
 
   // 绘制宝藏
+  const treasureGridSize = canvas.width / gameState.gridCount;
   gameState.treasures.forEach(treasure => {
     if (treasure.type === 'edge-less') {
       ctx.fillStyle = '#ff6b6b';
-      ctx.fillRect(treasure.x * config.gridSize, treasure.y * config.gridSize, config.gridSize, config.gridSize);
+      ctx.fillRect(treasure.x * treasureGridSize, treasure.y * treasureGridSize, treasureGridSize, treasureGridSize);
     } else if (treasure.type === 'qq-egg') {
       ctx.fillStyle = '#4ecdc4';
-      ctx.fillRect(treasure.x * config.gridSize, treasure.y * config.gridSize, config.gridSize, config.gridSize);
+      ctx.fillRect(treasure.x * treasureGridSize, treasure.y * treasureGridSize, treasureGridSize, treasureGridSize);
     } else if (treasure.type === 'counter') {
       // 绘制反击道具图标
-      ctx.drawImage(counterPropImg, treasure.x * config.gridSize, treasure.y * config.gridSize, config.gridSize, config.gridSize);
+      ctx.drawImage(counterPropImg, treasure.x * treasureGridSize, treasure.y * treasureGridSize, treasureGridSize, treasureGridSize);
     }
   });
 
   // 绘制面包
+  const drawGridSize = canvas.width / gameState.gridCount;
   let breadImg;
   if (gameState.bread.isCombatMode) {
     breadImg = breadCombatImg;
   } else {
     breadImg = gameState.bread.hasEdge ? breadWithEdgeImg : breadWithoutEdgeImg;
   }
-  ctx.drawImage(breadImg, gameState.bread.x * config.gridSize, gameState.bread.y * config.gridSize, config.gridSize, config.gridSize);
+  ctx.drawImage(breadImg, gameState.bread.x * drawGridSize, gameState.bread.y * drawGridSize, drawGridSize, drawGridSize);
 
-  // 绘制Taff蛇
+  // 绘制大Taff
   if (gameState.difficulty === 'normal' || gameState.difficulty === 'nightmare') {
-    const taffSize = config.gridSize * gameState.taff.size;
+    const taffSize = drawGridSize * gameState.taff.size;
 
     // 绘制身体
     for (let i = 1; i < gameState.taff.body.length - 1; i++) {
       const segment = gameState.taff.body[i];
-      const x = segment.x * config.gridSize + (config.gridSize - taffSize) / 2;
-      const y = segment.y * config.gridSize + (config.gridSize - taffSize) / 2;
+      const x = segment.x * drawGridSize + (drawGridSize - taffSize) / 2;
+      const y = segment.y * drawGridSize + (drawGridSize - taffSize) / 2;
       ctx.drawImage(taffBodyImg, x, y, taffSize, taffSize);
     }
 
     // 绘制尾巴
     if (gameState.taff.body.length > 1) {
       const tail = gameState.taff.body[gameState.taff.body.length - 1];
-      const x = tail.x * config.gridSize + (config.gridSize - taffSize) / 2;
-      const y = tail.y * config.gridSize + (config.gridSize - taffSize) / 2;
+      const x = tail.x * drawGridSize + (drawGridSize - taffSize) / 2;
+      const y = tail.y * drawGridSize + (drawGridSize - taffSize) / 2;
       ctx.drawImage(taffTailImg, x, y, taffSize, taffSize);
     }
 
     // 绘制头部
     const head = gameState.taff.body[0];
-    const headX = head.x * config.gridSize + (config.gridSize - taffSize) / 2;
-    const headY = head.y * config.gridSize + (config.gridSize - taffSize) / 2;
+    const headX = head.x * drawGridSize + (drawGridSize - taffSize) / 2;
+    const headY = head.y * drawGridSize + (drawGridSize - taffSize) / 2;
     ctx.drawImage(taffHeadImg, headX, headY, taffSize, taffSize);
+
+    // 绘制分裂Taff
+    if (gameState.taff.isSplit && gameState.taff.splitBody) {
+      // 绘制分裂Taff的身体
+      for (let i = 1; i < gameState.taff.splitBody.length - 1; i++) {
+        const segment = gameState.taff.splitBody[i];
+        const x = segment.x * drawGridSize + (drawGridSize - taffSize) / 2;
+        const y = segment.y * drawGridSize + (drawGridSize - taffSize) / 2;
+        ctx.drawImage(taffBodyImg, x, y, taffSize, taffSize);
+      }
+
+      // 绘制分裂Taff的尾巴
+      if (gameState.taff.splitBody.length > 1) {
+        const tail = gameState.taff.splitBody[gameState.taff.splitBody.length - 1];
+        const x = tail.x * drawGridSize + (drawGridSize - taffSize) / 2;
+        const y = tail.y * drawGridSize + (drawGridSize - taffSize) / 2;
+        ctx.drawImage(taffTailImg, x, y, taffSize, taffSize);
+      }
+
+      // 绘制分裂Taff的头部
+      const splitHead = gameState.taff.splitBody[0];
+      const splitHeadX = splitHead.x * drawGridSize + (drawGridSize - taffSize) / 2;
+      const splitHeadY = splitHead.y * drawGridSize + (drawGridSize - taffSize) / 2;
+      ctx.drawImage(taffHeadImg, splitHeadX, splitHeadY, taffSize, taffSize);
+    }
   }
 
-  // 绘制小Taff（恶梦模式）
+  // 绘制小Taff（恶梦模式和罪徒模式）
   if (gameState.difficulty === 'nightmare' && !gameState.smallTaff.isInvisible) {
-    const smallTaffSize = config.gridSize * gameState.smallTaff.size;
-    const smallTaffX = gameState.smallTaff.x * config.gridSize + (config.gridSize - smallTaffSize) / 2;
-    const smallTaffY = gameState.smallTaff.y * config.gridSize + (config.gridSize - smallTaffSize) / 2;
+    const smallTaffGridSize = canvas.width / gameState.gridCount;
+    const smallTaffSize = smallTaffGridSize * gameState.smallTaff.size;
+    const smallTaffX = gameState.smallTaff.x * smallTaffGridSize + (smallTaffGridSize - smallTaffSize) / 2;
+    const smallTaffY = gameState.smallTaff.y * smallTaffGridSize + (smallTaffGridSize - smallTaffSize) / 2;
 
     // 如果启用了特殊隐身模式，使用不透明度
     if (gameState.smallTaff.invisibleMode) {
@@ -370,6 +508,15 @@ function drawGame() {
       ctx.globalAlpha = 1;
     }
   }
+
+
+
+  // 恢复画布状态
+  if (gameState.difficulty === 'nightmare' && gameState.bread.isCombatMode) {
+    ctx.restore();
+  }
+
+
 }
 
 // 处理键盘输入
@@ -447,8 +594,8 @@ function updateBread() {
   // 增加步数
   gameState.bread.steps++;
 
-  // 掉落碎片
-  if (gameState.fragments.length < config.maxFragments) {
+  // 掉落碎片（如果没有禁止）
+  if (!gameState.noCrumbs && gameState.fragments.length < config.maxFragments) {
     gameState.fragments.push({
       x: gameState.bread.x,
       y: gameState.bread.y,
@@ -469,6 +616,7 @@ function updateBread() {
 
 // 更新Taff位置
 function updateTaff() {
+  // 其他模式：自动追踪面包
   // 简单的追踪算法：向面包方向移动
   const head = gameState.taff.body[0];
   let newHeadX = head.x;
@@ -500,6 +648,38 @@ function updateTaff() {
 
   // 检查是否吃到碎片
   checkFragments();
+
+  // 更新分裂Taff的位置
+  if (gameState.taff.isSplit && gameState.taff.splitBody) {
+    const splitHead = gameState.taff.splitBody[0];
+    let newSplitHeadX = splitHead.x;
+    let newSplitHeadY = splitHead.y;
+
+    // 分裂Taff也追踪面包
+    if (splitHead.x < gameState.bread.x) {
+      newSplitHeadX += 1;
+      gameState.taff.splitDirection = 'right';
+    } else if (splitHead.x > gameState.bread.x) {
+      newSplitHeadX -= 1;
+      gameState.taff.splitDirection = 'left';
+    } else if (splitHead.y < gameState.bread.y) {
+      newSplitHeadY += 1;
+      gameState.taff.splitDirection = 'down';
+    } else if (splitHead.y > gameState.bread.y) {
+      newSplitHeadY -= 1;
+      gameState.taff.splitDirection = 'up';
+    }
+
+    // 移动分裂Taff的蛇身
+    for (let i = gameState.taff.splitBody.length - 1; i > 0; i--) {
+      gameState.taff.splitBody[i].x = gameState.taff.splitBody[i - 1].x;
+      gameState.taff.splitBody[i].y = gameState.taff.splitBody[i - 1].y;
+    }
+
+    // 移动分裂Taff的头部
+    splitHead.x = newSplitHeadX;
+    splitHead.y = newSplitHeadY;
+  }
 }
 
 // 检查是否吃到碎片
@@ -520,15 +700,21 @@ function checkFragments() {
       // Taff每吃一个面包碎屑就变大10%
       gameState.taff.size *= 1.1;
 
-      // 随机播放音效
-      const randomSound = Math.random() > 0.5 ? sounds.taffEat : sounds.taffEat2;
-      randomSound.play().catch(e => {
+      // 随机播放音效和显示文字
+      let sound, message;
+      if (Math.random() > 0.5) {
+        sound = sounds.taffEat;
+        message = '好吃好吃！';
+      } else {
+        sound = sounds.taffEat2;
+        message = '豪士！';
+      }
+      sound.play().catch(e => {
         console.log('Taff吃碎屑音效播放失败:', e);
       });
 
-      // 随机显示消息
-      const messages = ['好吃好吃！', '豪士！'];
-      gameState.message = messages[Math.floor(Math.random() * messages.length)];
+      // 显示消息
+      gameState.message = message;
       gameMessageElement.textContent = gameState.message;
       setTimeout(() => {
         gameMessageElement.textContent = '';
@@ -547,6 +733,9 @@ function checkTreasures() {
         // 去掉面包边
         gameState.bread.hasEdge = false;
         gameState.message = treasure.message;
+        // 禁止面包屑掉落，持续2秒
+        gameState.noCrumbs = true;
+        gameState.noCrumbsTime = 2000;
         // 播放吃道具音效
         sounds.eatProp.play().catch(e => {
           console.log('吃道具音效播放失败:', e);
@@ -584,7 +773,95 @@ function checkTreasures() {
           gameState.smallTaff.invisiblePhase = 'fadeIn'; // 当前阶段：fadeIn, visible, fadeOut, hidden
           gameState.smallTaff.invisiblePhaseTimer = 0; // 当前阶段计时器
           gameState.smallTaff.opacity = 0; // 当前不透明度
+
+          // 切换BGM为反击
+          nightmareBgm.pause();
+          counterBgm.currentTime = 0;
+          counterBgm.play().catch(e => {
+            console.log('反击BGM播放失败:', e);
+          });
+
+          // 重置反击模式时间
+          gameState.counterModeTime = 0;
+          // 开始画面晃动
+          gameState.screenShakeIntensity = 1;
+
+          if (gameState.difficulty === 'sin') {
+            // 罪徒模式：大Taff炸开成小Taff
+            gameState.smallTaffs = [];
+            // 根据大Taff的大小生成小Taff的数量
+            const taffSize = Math.floor(gameState.taff.size * 10);
+            gameState.taffHealth = taffSize; // 设置血条
+
+            // 生成小Taff
+            for (let i = 0; i < taffSize; i++) {
+              // 在大Taff周围随机位置生成小Taff
+              const offsetX = Math.floor(Math.random() * 3) - 1;
+              const offsetY = Math.floor(Math.random() * 3) - 1;
+              const head = gameState.taff.body[0];
+
+              gameState.smallTaffs.push({
+                x: Math.max(0, Math.min(gameState.gridCount - 1, head.x + offsetX)),
+                y: Math.max(0, Math.min(gameState.gridCount - 1, head.y + offsetY)),
+                direction: directions[Math.floor(Math.random() * directions.length)],
+                speed: config.taffSpeed * 0.3, // 小Taff速度
+                size: 1 // 小Taff大小
+              });
+            }
+
+            // 重置大Taff
+            gameState.taff.body = [
+              { x: 1, y: 1 }, // 头部
+              { x: 0, y: 1 }, // 身体
+              { x: -1, y: 1 } // 尾巴
+            ];
+            gameState.taff.x = 1;
+            gameState.taff.y = 1;
+            gameState.taff.size = config.taffSize;
+
+            // 开始罪徒模式反击时间
+            gameState.sinCounterModeTime = 0;
+          } else {
+            // 普通恶梦模式：大Taff分裂成两个
+            gameState.taff.isSplit = true;
+            // 复制当前大Taff的身体作为分裂体
+            gameState.taff.splitBody = JSON.parse(JSON.stringify(gameState.taff.body));
+            // 为分裂体设置一个不同的初始方向
+            const directions = ['up', 'down', 'left', 'right'];
+            const randomDirection = directions[Math.floor(Math.random() * directions.length)];
+            gameState.taff.splitDirection = randomDirection;
+          }
         }
+
+        // 从宝藏列表中移除
+        gameState.treasures.splice(i, 1);
+        // 重置反击道具显示状态，以便下次生成
+        gameState.showCounterProp = false;
+
+        // 显示提示文字：获得ex咖喱棒！快去击杀小taff吧！
+        gameMessageElement.textContent = '获得ex咖喱棒！快去击杀小taff吧！';
+        gameMessageElement.style.fontSize = '36px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff6b6b';
+        gameMessageElement.style.textShadow = '2px 2px 0 #000';
+
+        // 延迟1s显示：你感觉大地在颤动！！！
+        setTimeout(() => {
+          gameMessageElement.textContent = '你感觉大地在颤动！！！';
+          gameMessageElement.style.fontSize = '36px';
+          gameMessageElement.style.fontWeight = 'bold';
+          gameMessageElement.style.color = '#ff6b6b';
+          gameMessageElement.style.textShadow = '2px 2px 0 #000';
+
+          // 2秒后清空消息
+          setTimeout(() => {
+            gameMessageElement.textContent = '';
+            gameMessageElement.style.fontSize = '18px';
+            gameMessageElement.style.fontWeight = 'normal';
+            gameMessageElement.style.color = '#333';
+            gameMessageElement.style.textShadow = 'none';
+          }, 2000);
+        }, 1000);
       }
 
       // 增加道具计数
@@ -626,7 +903,7 @@ function checkTreasures() {
           setTimeout(() => {
             // 创建新的视频元素，确保每次都能正确播放
             const video = document.createElement('video');
-            video.src = 'success.mp4';
+            video.src = 'vedio/成功结局.mp4';
             video.controls = false;
             video.style.position = 'fixed';
             video.style.top = '0';
@@ -707,14 +984,149 @@ function checkGameOver() {
 
       // 暂停BGM
       nightmareBgm.pause();
+      counterBgm.pause(); // 关闭反击BGM
 
       // 播放游戏结束音效
       sounds.gameOver.play().catch(e => {
         console.log('游戏结束音效播放失败:', e);
       });
 
+      // 恶梦难度下被击杀，将整个主题变成黑红色
+      if (gameState.difficulty === 'nightmare') {
+        document.body.style.backgroundColor = '#1a1a1a';
+        document.body.style.color = '#ff4444';
+        // 显示提示文字
+        gameMessageElement.textContent = '你的脑子被taff吃掉了！！！';
+        gameMessageElement.style.fontSize = '18px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff4444';
+        gameMessageElement.style.textShadow = '1px 1px 0 #000';
+        // 播放梦魇来袭音效
+        sounds.nightmareInvasion.play().catch(e => {
+          console.log('梦魇来袭音效播放失败:', e);
+        });
+      }
+
       // 显示游戏结束全屏界面
       gameOverScreen.classList.remove('hidden');
+    }
+
+    // 检查是否被分裂Taff抓住（考虑碰撞检测范围）
+    if (gameState.taff.isSplit && gameState.taff.splitBody) {
+      const splitHead = gameState.taff.splitBody[0];
+      const splitDx = Math.abs(splitHead.x - gameState.bread.x);
+      const splitDy = Math.abs(splitHead.y - gameState.bread.y);
+
+      if (splitDx < collisionRange && splitDy < collisionRange) {
+        gameState.gameOver = true;
+
+        // 暂停BGM
+        nightmareBgm.pause();
+        counterBgm.pause(); // 关闭反击BGM
+
+        // 播放游戏结束音效
+        sounds.gameOver.play().catch(e => {
+          console.log('游戏结束音效播放失败:', e);
+        });
+
+        // 显示游戏结束全屏界面
+        gameOverScreen.classList.remove('hidden');
+      }
+    }
+
+    // 罪徒模式：检查面包是否吃到小Taff
+    if (gameState.difficulty === 'sin' && gameState.bread.isCombatMode) {
+      for (let i = gameState.smallTaffs.length - 1; i >= 0; i--) {
+        const smallTaff = gameState.smallTaffs[i];
+        if (smallTaff.x === gameState.bread.x && smallTaff.y === gameState.bread.y) {
+          // 播放吃小Taff的音效
+          sounds.taffEat.play().catch(e => {
+            console.log('吃小Taff音效播放失败:', e);
+          });
+
+          // 从数组中移除小Taff
+          gameState.smallTaffs.splice(i, 1);
+          // 更新血条
+          gameState.taffHealth = gameState.smallTaffs.length;
+
+          // 检查是否所有小Taff都被吃掉
+          if (gameState.smallTaffs.length === 0) {
+            // 播放胜利音效
+            sounds.victory.play().catch(e => {
+              console.log('胜利音效播放失败:', e);
+            });
+
+            // 游戏胜利
+            gameState.gameWin = true;
+
+            // 暂停BGM
+            counterBgm.pause();
+
+            // 播放恶梦通关音效
+            sounds.nightmareWin.play().catch(e => {
+              console.log('恶梦通关音效播放失败:', e);
+            });
+
+            // 通关恶梦模式，恢复正常主题
+            document.body.style.backgroundColor = '';
+            document.body.style.color = '';
+
+            // 显示胜利全屏界面
+            setTimeout(() => {
+              // 播放胜利视频
+              const video = document.createElement('video');
+              video.src = 'vedio/噩梦通关.mp4';
+              video.controls = false;
+              video.autoplay = true;
+              video.muted = false;
+              video.style.position = 'fixed';
+              video.style.top = '0';
+              video.style.left = '0';
+              video.style.width = '100%';
+              video.style.height = '100%';
+              video.style.objectFit = 'cover';
+              video.style.zIndex = '9999';
+              document.body.appendChild(video);
+
+              // 播放主菜单BGM并设置音量为0
+              mainMenuBgm.currentTime = 0;
+              mainMenuBgm.volume = 0;
+              mainMenuBgm.play();
+
+              // 视频结束后显示胜利界面
+              video.addEventListener('ended', function () {
+                document.body.removeChild(video);
+                gameWinScreen.classList.remove('hidden');
+              });
+
+              // 监听视频时间更新，实现音量渐变
+              const videoDuration = video.duration || 10; // 默认10秒
+              const fadeInDuration = 5; // 5秒渐变
+
+              const volumeInterval = setInterval(() => {
+                if (video.paused || video.ended) {
+                  clearInterval(volumeInterval);
+                  return;
+                }
+
+                const currentTime = video.currentTime;
+                const remainingTime = videoDuration - currentTime;
+
+                // 当视频剩余时间小于fadeInDuration时，开始逐渐增加音量
+                if (remainingTime <= fadeInDuration) {
+                  const volume = 1 - (remainingTime / fadeInDuration);
+                  mainMenuBgm.volume = Math.min(1, Math.max(0, volume));
+                }
+              }, 100);
+
+              // 清理定时器
+              video.addEventListener('ended', function () {
+                clearInterval(volumeInterval);
+              });
+            }, 1000);
+          }
+        }
+      }
     }
 
     // 检查是否被小Taff抓住（非战斗形态）
@@ -730,11 +1142,28 @@ function checkGameOver() {
 
       // 暂停BGM
       nightmareBgm.pause();
+      counterBgm.pause(); // 关闭反击BGM
 
       // 播放游戏结束音效
       sounds.gameOver.play().catch(e => {
         console.log('游戏结束音效播放失败:', e);
       });
+
+      // 恶梦难度下被击杀，将整个主题变成黑红色
+      if (gameState.difficulty === 'nightmare') {
+        document.body.style.backgroundColor = '#1a1a1a';
+        document.body.style.color = '#ff4444';
+        // 显示提示文字
+        gameMessageElement.textContent = '你的脑子被taff吃掉了！！！';
+        gameMessageElement.style.fontSize = '18px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff4444';
+        gameMessageElement.style.textShadow = '1px 1px 0 #000';
+        // 播放梦魇来袭音效
+        sounds.nightmareInvasion.play().catch(e => {
+          console.log('梦魇来袭音效播放失败:', e);
+        });
+      }
 
       // 显示游戏结束全屏界面
       gameOverScreen.classList.remove('hidden');
@@ -762,6 +1191,9 @@ function checkGameOver() {
 
       // 等待音效播放完毕后播放视频
       setTimeout(() => {
+        // 关闭反击BGM（如果正在播放）
+        counterBgm.pause();
+
         // 创建新的视频元素，确保每次都能正确播放
         const video = document.createElement('video');
         video.src = 'vedio/噩梦通关.mp4';
@@ -786,8 +1218,36 @@ function checkGameOver() {
           gameWinScreen.classList.remove('hidden');
         });
 
+        // 开始播放主菜单BGM，音量从0开始
+        mainMenuBgm.currentTime = 0;
+        mainMenuBgm.volume = 0;
+        mainMenuBgm.play().catch(e => {
+          console.log('主菜单BGM播放失败:', e);
+        });
+
+        // 视频播放过程中，主菜单BGM音量随剩余时长逐渐变大
+        const videoDuration = video.duration || 10; // 默认10秒
+        const fadeInDuration = 5; // 音量渐变时间为5秒
+
+        const volumeInterval = setInterval(() => {
+          if (video.paused || video.ended) {
+            clearInterval(volumeInterval);
+            return;
+          }
+
+          const currentTime = video.currentTime;
+          const remainingTime = videoDuration - currentTime;
+
+          // 当视频剩余时间小于fadeInDuration时，开始逐渐增加音量
+          if (remainingTime <= fadeInDuration) {
+            const volume = 1 - (remainingTime / fadeInDuration);
+            mainMenuBgm.volume = Math.min(1, Math.max(0, volume));
+          }
+        }, 100); // 每100毫秒更新一次音量
+
         // 视频播放完毕后显示游戏胜利界面
         video.onended = function () {
+          clearInterval(volumeInterval);
           video.style.display = 'none';
           document.body.removeChild(video);
           gameState.gameOver = true;
@@ -809,6 +1269,22 @@ function checkGameOver() {
       sounds.gameOver.play().catch(e => {
         console.log('游戏结束音效播放失败:', e);
       });
+
+      // 恶梦难度下被击杀，将整个主题变成黑红色
+      if (gameState.difficulty === 'nightmare') {
+        document.body.style.backgroundColor = '#1a1a1a';
+        document.body.style.color = '#ff4444';
+        // 显示提示文字
+        gameMessageElement.textContent = '你的脑子被taff吃掉了！！！';
+        gameMessageElement.style.fontSize = '18px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff4444';
+        gameMessageElement.style.textShadow = '1px 1px 0 #000';
+        // 播放梦魇来袭音效
+        sounds.nightmareInvasion.play().catch(e => {
+          console.log('梦魇来袭音效播放失败:', e);
+        });
+      }
 
       // 显示游戏结束全屏界面
       gameOverScreen.classList.remove('hidden');
@@ -901,6 +1377,143 @@ function gameLoop(timestamp = 0) {
     }
   }
 
+  // 更新反击模式效果
+  if (gameState.difficulty === 'nightmare' && gameState.bread.isCombatMode) {
+    gameState.counterModeTime += deltaTime;
+
+    // 画面晃动强度随时间增加
+    gameState.screenShakeIntensity = 1 + (gameState.counterModeTime / 5000);
+  }
+
+  // 跟踪面包移动距离
+  if (gameState.difficulty === 'nightmare') {
+    // 计算面包移动的距离
+    const distance = Math.abs(gameState.bread.x - gameState.lastBreadPosition.x) + Math.abs(gameState.bread.y - gameState.lastBreadPosition.y);
+    gameState.breadMoveDistance += distance;
+    gameState.lastBreadPosition = { x: gameState.bread.x, y: gameState.bread.y };
+
+    // BGM随着移动步数增加越来越快
+    if (gameState.breadMoveDistance > 0 && gameState.breadMoveDistance % 10 === 0) {
+      const speedMultiplier = 1 + (gameState.breadMoveDistance / 100);
+      nightmareBgm.playbackRate = Math.min(speedMultiplier, 2); // 最大速度为2倍
+    }
+  }
+
+  // 更新禁止面包屑掉落的时间
+  if (gameState.noCrumbs) {
+    gameState.noCrumbsTime -= deltaTime;
+    if (gameState.noCrumbsTime <= 0) {
+      gameState.noCrumbs = false;
+      gameState.noCrumbsTime = 0;
+    }
+  }
+
+  // 恶梦模式文字显示逻辑
+  if (gameState.difficulty === 'nightmare' && nightmareTextElement) {
+    // 文字计时器更新
+    gameState.textTimer += deltaTime;
+
+    // 开场召唤文字（只显示一次）
+    if (!gameState.textDisplayed && gameState.counterModeTime === 0) {
+      const summonTexts = gameState.nightmareTexts.summon;
+      const randomIndex = Math.floor(Math.random() * summonTexts.length);
+      gameState.currentText = summonTexts[randomIndex];
+      // 显示文字
+      nightmareTextElement.textContent = gameState.currentText;
+      nightmareTextElement.style.opacity = '1';
+      gameState.textTimer = 0;
+      gameState.textDisplayed = true;
+    }
+
+    // 战斗中嘲讽文字（每10秒随机显示一次）
+    else if (gameState.counterModeTime === 0 && gameState.textTimer > 10000) {
+      const combatTexts = gameState.nightmareTexts.combat;
+      const randomIndex = Math.floor(Math.random() * combatTexts.length);
+      gameState.currentText = combatTexts[randomIndex];
+      // 显示文字
+      nightmareTextElement.textContent = gameState.currentText;
+      nightmareTextElement.style.opacity = '1';
+      gameState.textTimer = 0;
+    }
+
+    // 进入二阶段时显示文字
+    else if (gameState.taff.isSplit && gameState.textTimer > 5000) {
+      const phase2Texts = gameState.nightmareTexts.phase2;
+      const randomIndex = Math.floor(Math.random() * phase2Texts.length);
+      gameState.currentText = phase2Texts[randomIndex];
+      // 显示文字
+      nightmareTextElement.textContent = gameState.currentText;
+      nightmareTextElement.style.opacity = '1';
+      gameState.textTimer = 0;
+      gameState.taff.isSplit = false; // 确保只显示一次
+    }
+
+    // 面包移动一定距离后显示文字
+    else if (gameState.counterModeTime === 0 && gameState.breadMoveDistance >= 5 && gameState.textTimer > 2000) {
+      const moveTexts = gameState.nightmareTexts.move;
+      const randomIndex = Math.floor(Math.random() * moveTexts.length);
+      gameState.currentText = moveTexts[randomIndex];
+      // 显示文字
+      nightmareTextElement.textContent = gameState.currentText;
+      nightmareTextElement.style.opacity = '1';
+      gameState.textTimer = 0;
+      gameState.breadMoveDistance = 0; // 重置移动距离
+    }
+
+    // 每5秒播放一次"taff最喜欢你啦"
+    if (gameState.textTimer > 5000) {
+      sounds.likeYou.play().catch(e => {
+        console.log('最喜欢你啦播放失败:', e);
+      });
+      gameState.textTimer = 0;
+    }
+
+    // 文字显示时间到，隐藏文字
+    if (gameState.currentText && gameState.textTimer > gameState.textDuration) {
+      nightmareTextElement.style.opacity = '0';
+      // 延迟清空文字内容，等待淡出动画完成
+      setTimeout(() => {
+        gameState.currentText = '';
+        if (nightmareTextElement) {
+          nightmareTextElement.textContent = '';
+        }
+      }, 1000);
+    }
+  }
+
+
+
+  // 检查面包是否在墙角不动
+  const isInCorner = (
+    (gameState.bread.x === 0 && gameState.bread.y === 0) || // 左上角
+    (gameState.bread.x === 0 && gameState.bread.y === gameState.gridCount - 1) || // 左下角
+    (gameState.bread.x === gameState.gridCount - 1 && gameState.bread.y === 0) || // 右上角
+    (gameState.bread.x === gameState.gridCount - 1 && gameState.bread.y === gameState.gridCount - 1) // 右下角
+  );
+
+  if (isInCorner) {
+    gameState.breadPositionTimer += deltaTime;
+    // 如果面包在墙角超过1秒，增加Taff速度
+    if (gameState.breadPositionTimer > 1000 && !gameState.breadInCorner) {
+      gameState.breadInCorner = true;
+      // 大Taff速度增加50%
+      gameState.taff.speed = gameState.originalTaffSpeed * 1.5;
+      // 小Taff速度增加50%
+      gameState.smallTaff.speed = gameState.originalSmallTaffSpeed * 1.5;
+    }
+  } else {
+    // 面包不在墙角，重置计时器和速度
+    if (gameState.breadInCorner) {
+      gameState.breadInCorner = false;
+      // 恢复原始速度
+      gameState.taff.speed = gameState.originalTaffSpeed;
+      gameState.smallTaff.speed = gameState.originalSmallTaffSpeed;
+    }
+    gameState.breadPositionTimer = 0;
+  }
+
+
+
   requestAnimationFrame(gameLoop);
 }
 
@@ -971,16 +1584,42 @@ function updateSmallTaff() {
       gameState.smallTaff.isInvisible = true;
       gameState.smallTaff.invisibleTimer = 0;
 
-      // 随机播放小Taff的语音
+      // 随机播放小Taff的语音并显示相应文字
       const randomVoice = Math.random();
       if (randomVoice < 0.5) {
         sounds.notTang.play().catch(e => {
           console.log('"才不唐呢"播放失败:', e);
         });
+        // 显示文字
+        gameMessageElement.textContent = '才不唐呢';
+        gameMessageElement.style.fontSize = '24px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff6b6b';
+        gameMessageElement.style.textShadow = '1px 1px 0 #000';
+        setTimeout(() => {
+          gameMessageElement.textContent = '';
+          gameMessageElement.style.fontSize = '18px';
+          gameMessageElement.style.fontWeight = 'normal';
+          gameMessageElement.style.color = '#333';
+          gameMessageElement.style.textShadow = 'none';
+        }, 2000);
       } else {
         sounds.likeYou.play().catch(e => {
           console.log('"最喜欢你啦"播放失败:', e);
         });
+        // 显示文字
+        gameMessageElement.textContent = '最喜欢你啦';
+        gameMessageElement.style.fontSize = '24px';
+        gameMessageElement.style.fontWeight = 'bold';
+        gameMessageElement.style.color = '#ff6b6b';
+        gameMessageElement.style.textShadow = '1px 1px 0 #000';
+        setTimeout(() => {
+          gameMessageElement.textContent = '';
+          gameMessageElement.style.fontSize = '18px';
+          gameMessageElement.style.fontWeight = 'normal';
+          gameMessageElement.style.color = '#333';
+          gameMessageElement.style.textShadow = 'none';
+        }, 2000);
       }
     }
   });
@@ -994,18 +1633,45 @@ function startGame() {
 
   // 根据难度选择播放对应的BGM
   if (gameState.difficulty === 'nightmare') {
-    // 恶梦模式：播放开场音效和恶梦BGM
-    sounds.nightmareIntro.play().catch(e => {
-      console.log('恶梦开场音效播放失败:', e);
+    // 恶梦模式：播放梦魇来袭音效和恶梦BGM
+    sounds.nightmareInvasion.play().catch(e => {
+      console.log('梦魇来袭音效播放失败:', e);
     });
-    nightmareBgm.play().catch(e => {
-      console.log('恶梦BGM播放失败:', e);
-    });
+    if (gameState.bgmEnabled) {
+      nightmareBgm.play().catch(e => {
+        console.log('恶梦BGM播放失败:', e);
+      });
+    }
+
+    // 显示梦魇来袭提示
+    gameMessageElement.textContent = 'taff入侵了你的游戏！快去关注taff喵吧，我才不会告诉你只要通关了噩梦就会恢复正常呢';
+    gameMessageElement.style.fontSize = '16px';
+    gameMessageElement.style.fontWeight = 'bold';
+    gameMessageElement.style.color = '#ff4444';
+    gameMessageElement.style.textShadow = '1px 1px 0 #000';
+    setTimeout(() => {
+      gameMessageElement.textContent = '';
+      gameMessageElement.style.fontSize = '18px';
+      gameMessageElement.style.fontWeight = 'normal';
+      gameMessageElement.style.color = '#333';
+      gameMessageElement.style.textShadow = 'none';
+    }, 5000);
+
+    // 整个游戏主题变为黑红配色
+    document.body.style.backgroundColor = '#1a1a1a';
+    document.body.style.color = '#ff4444';
   } else {
     // 其他模式：播放普通游戏BGM
-    gameBgm.play().catch(e => {
-      console.log('游戏BGM播放失败:', e);
-    });
+    if (gameState.bgmEnabled) {
+      gameBgm.play().catch(e => {
+        console.log('游戏BGM播放失败:', e);
+      });
+    }
+  }
+
+  // 更新BGM按钮状态
+  if (bgmToggleBtn) {
+    bgmToggleBtn.textContent = gameState.bgmEnabled ? '关闭BGM' : '开启BGM';
   }
 
   // 隐藏主菜单，显示游戏界面
@@ -1046,6 +1712,10 @@ function backToMainMenu() {
   mainMenuBgm.play().catch(e => {
     console.log('主菜单BGM播放失败:', e);
   });
+
+  // 恢复默认主题颜色
+  document.body.style.backgroundColor = '';
+  document.body.style.color = '';
 
   // 显示主菜单，隐藏游戏界面
   mainMenu.classList.remove('hidden');
@@ -1162,6 +1832,8 @@ nightmareButton.addEventListener('click', function () {
   difficultyScreen.classList.add('hidden');
   startGame();
 });
+
+
 backFromDifficultyButton.addEventListener('click', function () {
   difficultyScreen.classList.add('hidden');
   mainMenu.classList.remove('hidden');
@@ -1222,6 +1894,38 @@ authorName.addEventListener('click', function () {
     window.location.href = 'https://space.bilibili.com/398038578?spm_id_from=333.1007.0.0';
   }
 });
+
+// 监听BGM开关按钮点击
+if (bgmToggleBtn) {
+  bgmToggleBtn.addEventListener('click', function () {
+    // 恶梦难度下不允许关闭BGM，除非通关
+    if (gameState.difficulty === 'nightmare' && !gameState.gameWin) {
+      return;
+    }
+
+    gameState.bgmEnabled = !gameState.bgmEnabled;
+
+    if (gameState.bgmEnabled) {
+      // 开启BGM
+      bgmToggleBtn.textContent = '关闭BGM';
+      if (gameState.difficulty === 'nightmare') {
+        nightmareBgm.play().catch(e => {
+          console.log('恶梦BGM播放失败:', e);
+        });
+      } else {
+        gameBgm.play().catch(e => {
+          console.log('游戏BGM播放失败:', e);
+        });
+      }
+    } else {
+      // 关闭BGM
+      bgmToggleBtn.textContent = '开启BGM';
+      gameBgm.pause();
+      nightmareBgm.pause();
+      counterBgm.pause();
+    }
+  });
+}
 
 // 页面加载时自动播放主菜单BGM
 window.addEventListener('DOMContentLoaded', () => {
