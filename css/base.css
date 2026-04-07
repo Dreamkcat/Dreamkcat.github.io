@@ -1,0 +1,29 @@
+/* 引入字体 */
+/* 相当于设置了自定义字体, 如果MyFont不存在, 则使用sans-serif字体 */
+/* 先定义字体，再写样式 */
+@font-face {
+  font-family: 'heiti';
+  /* 英文名称更稳定 */
+  src: url('../font/阿里黑体.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* 使用的时候加font-family: '名字'即可 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  transition: all 0.3s ease-in-out;
+  font-size: 14px;
+  scroll-behavior: smooth;
+}
+
+a {
+  text-decoration: none;
+  color: #000;
+}
+
+li {
+  list-style: none;
+}
