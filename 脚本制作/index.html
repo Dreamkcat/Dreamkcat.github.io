@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分镜模板 - 视频脚本工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="header-bar"><h1>分镜模板</h1></div>
+  <div class="container">
+    <div class="meta-section">
+      <div class="meta-row">
+        <label class="meta-label">视频标题</label>
+        <input type="text" class="meta-input" id="videoTitle" placeholder="请输入视频标题">
+      </div>
+      <div class="meta-row">
+        <label class="meta-label">视频简介</label>
+        <textarea class="meta-input" id="videoIntro" placeholder="请输入视频简介"></textarea>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" id="addRowBtn">+ 添加镜头</button>
+      <button class="btn btn-outline" id="renumberBtn">重新编号</button>
+      <button class="btn btn-outline" id="importWordBtn">导入 Word</button>
+      <button class="btn btn-success" id="saveBtn">保存项目</button>
+      <button class="btn btn-warning" id="loadBtn">打开项目</button>
+      <button class="btn btn-outline" id="printBtn">打印 / 导出 PDF</button>
+      <button class="btn btn-danger" id="resetBtn">重置</button>
+      <span class="save-hint" id="saveHint">数据自动保存在浏览器本地</span>
+      <input type="file" id="loadInput" class="hidden-input" accept=".json">
+      <input type="file" id="importWordInput" class="hidden-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-order">镜号</th>
+            <th class="col-image">画面</th>
+            <th class="col-type">镜头类型<br><small class="th-hint">(全景/中景/特写等)</small></th>
+            <th class="col-move">镜头运动<br><small class="th-hint">(固定/推/拉/摇等)</small></th>
+            <th>内容</th>
+            <th>文案</th>
+            <th>音效</th>
+            <th>备注</th>
+            <th class="col-action">操作</th>
+          </tr>
+        </thead>
+        <tbody id="shotTable"></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

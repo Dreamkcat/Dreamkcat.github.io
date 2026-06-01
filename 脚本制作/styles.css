@@ -1,0 +1,56 @@
+﻿* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f0f2f5; color: #222; min-height: 100vh; }
+.header-bar { background: #ffd700; padding: 16px 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.header-bar h1 { font-size: 28px; font-weight: 700; letter-spacing: 4px; }
+.container { max-width: 1600px; margin: 0 auto; padding: 20px 24px 40px; }
+.meta-section { background: #fff; border: 2px solid #4a90d9; border-radius: 6px; padding: 20px 24px; margin-bottom: 20px; }
+.meta-row { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.meta-row:last-child { margin-bottom: 0; }
+.meta-label { flex-shrink: 0; width: 80px; font-weight: 600; padding-top: 8px; color: #333; }
+.meta-input { flex: 1; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
+.meta-input:focus { outline: none; border-color: #4a90d9; box-shadow: 0 0 0 2px rgba(74,144,217,0.2); }
+textarea.meta-input { min-height: 72px; resize: vertical; line-height: 1.6; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: center; }
+.btn { padding: 8px 18px; border: none; border-radius: 4px; font-size: 14px; font-family: inherit; cursor: pointer; font-weight: 500; }
+.btn-primary { background: #4a90d9; color: #fff; }
+.btn-primary:hover { background: #357abd; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-success:hover { background: #389e0d; }
+.btn-warning { background: #faad14; color: #fff; }
+.btn-warning:hover { background: #d48806; }
+.btn-danger { background: #ff4d4f; color: #fff; padding: 4px 10px; font-size: 12px; }
+.btn-danger:hover { background: #cf1322; }
+.btn-outline { background: #fff; border: 1px solid #4a90d9; color: #4a90d9; }
+.btn-outline:hover { background: #e6f4ff; }
+.save-hint { margin-left: auto; font-size: 13px; color: #888; }
+.table-wrapper { overflow-x: auto; background: #fff; border: 2px solid #4a90d9; border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+thead th { background: #1a1a1a; color: #fff; padding: 12px 8px; font-size: 14px; font-weight: 600; text-align: center; border: 1px solid #4a90d9; white-space: nowrap; }
+.th-hint { font-weight: 400; font-size: 11px; }
+tbody td { border: 1px solid #4a90d9; padding: 6px; vertical-align: top; }
+tbody tr:hover { background: #fafcff; }
+.col-order { width: 70px; }
+.col-image { width: 160px; }
+.col-type { width: 110px; }
+.col-move { width: 110px; }
+.col-action { width: 50px; text-align: center; vertical-align: middle !important; }
+.cell-input { width: 100%; border: 1px solid transparent; border-radius: 3px; padding: 6px 8px; font-size: 13px; font-family: inherit; background: transparent; resize: none; line-height: 1.5; min-height: 80px; }
+.cell-input:focus { outline: none; border-color: #4a90d9; background: #fff; }
+.cell-input.order-input { min-height: auto; text-align: center; font-weight: 600; }
+.cell-input.short { min-height: 80px; }
+.image-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 120px; }
+.image-preview { width: 140px; height: 90px; border: 1px dashed #bbb; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fafafa; cursor: pointer; }
+.image-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.image-preview .placeholder { font-size: 12px; color: #999; text-align: center; padding: 8px; line-height: 1.4; }
+.image-preview:hover { border-color: #4a90d9; background: #f0f7ff; }
+.image-actions { display: flex; gap: 4px; }
+.btn-sm { padding: 3px 8px; font-size: 11px; border: 1px solid #ccc; background: #fff; border-radius: 3px; cursor: pointer; font-family: inherit; }
+.btn-sm:hover { border-color: #4a90d9; color: #4a90d9; }
+.hidden-input { display: none; }
+.empty-state { text-align: center; padding: 40px; color: #999; font-size: 14px; }
+@media print {
+  .toolbar, .btn-danger, .image-actions, .btn-sm { display: none !important; }
+  body { background: #fff; }
+  .header-bar { background: #ffd700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead th { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
