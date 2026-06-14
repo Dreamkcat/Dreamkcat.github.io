@@ -51,8 +51,12 @@ function autoResize(el) {
   el.style.height = Math.max(80, el.scrollHeight) + 'px';
 }
 
-function renderTable() {
+function renderTable(options = {}) {
   const tbody = document.getElementById('shotTable');
+  const wrapper = document.querySelector('.table-wrapper');
+  const scrollTop = wrapper ? wrapper.scrollTop : 0;
+  const scrollLeft = wrapper ? wrapper.scrollLeft : 0;
+
   if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" class="empty-state">\u6682\u65e0\u955c\u5934\uff0c\u70b9\u51fb\u300c\u6dfb\u52a0\u955c\u5934\u300d\u5f00\u59cb\u7f16\u5199\u811a\u672c</td></tr>';
     return;
@@ -81,11 +85,37 @@ function renderTable() {
       <td><textarea class="cell-input" data-index="${index}" data-field="copy" placeholder="\u65c1\u767d\u6216\u53f0\u8bcd...">${esc(row.copy)}</textarea></td>
       <td><textarea class="cell-input short" data-index="${index}" data-field="sound" placeholder="\u80cc\u666f\u97f3\u4e50/\u97f3\u6548...">${esc(row.sound)}</textarea></td>
       <td><textarea class="cell-input short" data-index="${index}" data-field="remark" placeholder="\u5907\u6ce8...">${esc(row.remark)}</textarea></td>
-      <td class="col-action"><button type="button" class="btn btn-danger" data-delete="${index}">\u5220\u9664</button></td>
+      <td class="col-action">
+        <div class="row-actions">
+          <button type="button" class="btn btn-add" data-insert="${index}" title="\u5728\u6b64\u884c\u4e0b\u65b9\u6dfb\u52a0\u955c\u5934">+</button>
+          <button type="button" class="btn btn-danger" data-delete="${index}">\u5220\u9664</button>
+        </div>
+      </td>
     </tr>
   `).join('');
 
   tbody.querySelectorAll('textarea').forEach(autoResize);
+
+  if (wrapper) {
+    if (options.scrollToIndex !== undefined) {
+      const targetRow = tbody.querySelector(`tr[data-id="${rows[options.scrollToIndex]?.id}"]`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        wrapper.scrollTop = scrollTop;
+        wrapper.scrollLeft = scrollLeft;
+      }
+    } else {
+      wrapper.scrollTop = scrollTop;
+      wrapper.scrollLeft = scrollLeft;
+    }
+  }
+
+  if (options.focusIndex !== undefined) {
+    const field = options.focusField || 'copy';
+    const el = tbody.querySelector(`textarea[data-index="${options.focusIndex}"][data-field="${field}"]`);
+    if (el) el.focus();
+  }
 }
 
 function updateField(index, field, value) {
@@ -94,8 +124,16 @@ function updateField(index, field, value) {
 }
 
 function addRow() {
-  rows.push(createEmptyRow(String(rows.length + 1)));
-  renderTable();
+  const newIndex = rows.length;
+  rows.push(createEmptyRow(String(newIndex + 1)));
+  renderTable({ scrollToIndex: newIndex, focusIndex: newIndex });
+  autoSave();
+}
+
+function insertRowAfter(index) {
+  const newRow = createEmptyRow('');
+  rows.splice(index + 1, 0, newRow);
+  renderTable({ scrollToIndex: index + 1, focusIndex: index + 1 });
   autoSave();
 }
 
@@ -263,24 +301,55 @@ function buildRowsFromCopyList(copyList) {
 
 function importWordShots(copyList, mode) {
   const newRows = buildRowsFromCopyList(copyList);
-  if (rows.length === 0) {
+  const start = rows.length;
+  if (start === 0) {
     rows = newRows;
   } else {
-    const replace = confirm('\u5df2\u6709 ' + rows.length + ' \u4e2a\u955c\u5934\u3002\u70b9\u300c\u786e\u5b9a\u300d\u66ff\u6362\uff0c\u70b9\u300c\u53d6\u6d88\u300d\u8ffd\u52a0\u5230\u672b\u5c3e\u3002');
-    if (replace) {
-      rows = newRows;
-    } else {
-      const start = rows.length;
-      newRows.forEach((row, i) => {
-        row.order = String(start + i + 1);
-        rows.push(row);
-      });
-    }
+    newRows.forEach((row, i) => {
+      row.order = String(start + i + 1);
+      rows.push(row);
+    });
   }
-  renderTable();
+  renderTable({ scrollToIndex: start });
   autoSave();
   const modeText = mode === 'line' ? '\u6309\u884c' : '\u6309\u53e5\u5b50';
-  document.getElementById('saveHint').textContent = modeText + '\u5bfc\u5165 ' + copyList.length + ' \u6761\u6587\u6848 \u00b7 ' + new Date().toLocaleTimeString();
+  const appendText = start > 0 ? '\uff0c\u8ffd\u52a0\u5230\u672b\u5c3e' : '';
+  document.getElementById('saveHint').textContent = modeText + '\u5bfc\u5165 ' + copyList.length + ' \u6761\u6587\u6848' + appendText + ' \u00b7 ' + new Date().toLocaleTimeString();
+}
+
+function exportExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel \u5bfc\u51fa\u5e93\u672a\u52a0\u8f7d\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u540e\u91cd\u8bd5');
+    return;
+  }
+  const title = document.getElementById('videoTitle').value;
+  const intro = document.getElementById('videoIntro').value;
+  const sheetData = [
+    ['\u89c6\u9891\u6807\u9898', title],
+    ['\u89c6\u9891\u7b80\u4ecb', intro],
+    [],
+    ['\u955c\u53f7', '\u955c\u5934\u7c7b\u578b', '\u955c\u5934\u8fd0\u52a8', '\u5185\u5bb9', '\u6587\u6848', '\u97f3\u6548', '\u5907\u6ce8', '\u662f\u5426\u6709\u56fe'],
+    ...rows.map((row) => [
+      row.order,
+      row.shotType,
+      row.movement,
+      row.content,
+      row.copy,
+      row.sound,
+      row.remark,
+      row.image ? '\u662f' : ''
+    ])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws['!cols'] = [
+    { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 40 },
+    { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 10 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '\u5206\u955c\u811a\u672c');
+  const filename = sanitizeFilename(title) + '.xlsx';
+  XLSX.writeFile(wb, filename);
+  document.getElementById('saveHint').textContent = '\u5df2\u5bfc\u51fa\u300c' + filename + '\u300d \u00b7 ' + new Date().toLocaleTimeString();
 }
 
 async function importWordFile(file) {
@@ -324,6 +393,7 @@ function bindEvents() {
   document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('loadInput').click());
   document.getElementById('importWordBtn').addEventListener('click', () => document.getElementById('importWordInput').click());
   document.getElementById('printBtn').addEventListener('click', () => window.print());
+  document.getElementById('exportExcelBtn').addEventListener('click', exportExcel);
   document.getElementById('resetBtn').addEventListener('click', resetProject);
   document.getElementById('videoTitle').addEventListener('input', autoSave);
   document.getElementById('videoIntro').addEventListener('input', autoSave);
@@ -358,6 +428,11 @@ function bindEvents() {
     const clearIndex = e.target.dataset.clearImage;
     if (clearIndex !== undefined) {
       removeImage(Number(clearIndex));
+      return;
+    }
+    const insertIndex = e.target.dataset.insert;
+    if (insertIndex !== undefined) {
+      insertRowAfter(Number(insertIndex));
       return;
     }
     const deleteIndex = e.target.dataset.delete;

@@ -33,7 +33,10 @@ tbody tr:hover { background: #fafcff; }
 .col-image { width: 160px; }
 .col-type { width: 110px; }
 .col-move { width: 110px; }
-.col-action { width: 50px; text-align: center; vertical-align: middle !important; }
+.col-action { width: 72px; text-align: center; vertical-align: middle !important; }
+.row-actions { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.btn-add { background: #4a90d9; color: #fff; padding: 4px 10px; font-size: 14px; font-weight: 700; line-height: 1; min-width: 32px; }
+.btn-add:hover { background: #357abd; }
 .cell-input { width: 100%; border: 1px solid transparent; border-radius: 3px; padding: 6px 8px; font-size: 13px; font-family: inherit; background: transparent; resize: none; line-height: 1.5; min-height: 80px; }
 .cell-input:focus { outline: none; border-color: #4a90d9; background: #fff; }
 .cell-input.order-input { min-height: auto; text-align: center; font-weight: 600; }
@@ -49,7 +52,7 @@ tbody tr:hover { background: #fafcff; }
 .hidden-input { display: none; }
 .empty-state { text-align: center; padding: 40px; color: #999; font-size: 14px; }
 @media print {
-  .toolbar, .btn-danger, .image-actions, .btn-sm { display: none !important; }
+  .toolbar, .btn-danger, .btn-add, .image-actions, .btn-sm { display: none !important; }
   body { background: #fff; }
   .header-bar { background: #ffd700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   thead th { background: #1a1a1a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
