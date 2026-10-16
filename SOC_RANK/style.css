@@ -492,6 +492,42 @@ body[data-theme="pop"] .sec-title{transform:rotate(-1deg);border-radius:0}
 }
 .empty b{color:var(--ink)}
 
+/* ---------- Geekbench 7 隔离区（新基准，不与上方 GB6 榜混排/混比） ---------- */
+.gb7-head,.gb7-row{
+  display:grid;grid-template-columns:minmax(0,1fr) 86px 86px;
+  align-items:center;column-gap:14px;
+}
+.gb7-head{
+  padding:0 2px 9px;font-size:10.5px;font-weight:700;
+  letter-spacing:.1em;color:var(--ink2);
+  border-bottom:var(--bdw) solid var(--bd);
+}
+.gb7-head span:not(:first-child){text-align:right}
+.gb7-row{padding:15px 2px;border-bottom:var(--bdw) solid var(--bd)}
+.gb7-row .nm{
+  min-width:0;font-size:15px;font-weight:700;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gb7-row .nm .chip{margin-left:8px}
+/* GB7 表没有机型列，把搭载机型当小字缀在芯片名后——否则观众不知道这分是谁跑的 */
+.gb7-row .nm .dv{
+  margin-left:8px;font-size:12px;font-weight:600;
+  color:var(--ink2);letter-spacing:0;
+}
+.gb7-row .num{
+  font-family:var(--mono);font-size:15px;color:var(--ink);
+  text-align:right;white-space:nowrap;
+}
+/* 波普主题：每行升级成卡片，跟榜单的视觉语言对齐 */
+/* 表头横向内缩必须＝卡片 padding(20) + border(3) = 23px，否则列对不齐 */
+body[data-theme="pop"] .gb7-head{padding:0 23px 10px;border-bottom:0}
+body[data-theme="pop"] #gb7{display:flex;flex-direction:column;gap:12px}
+body[data-theme="pop"] .gb7-row{
+  background:var(--card);border:var(--bdw) solid var(--bd);
+  border-radius:var(--radius);box-shadow:var(--shadow-sm);
+  padding:17px 20px;
+}
+
 /* ---------- footer ---------- */
 footer{
   margin-top:60px;background:var(--footbg);color:var(--footfg);

@@ -27,9 +27,16 @@ const VIDEOS = {
 const CHIPS = [
   { soc:"骁龙 8 至尊版", brand:"Qualcomm", devices:[
     { n:"小米 15 Ultra", sc:2871, mc:9217, att:330, bv:"BV1jWhE6tEdQ" },
+    { n:"一加 Ace 6",    sc:2830, mc:8661, bv:null },
   ]},
   { soc:"Apple A18 Pro", brand:"Apple", devices:[
     { n:"iPhone 16 Pro", sc:3392, mc:8601, bv:null },
+  ]},
+  { soc:"骁龙 8 Gen 3", brand:"Qualcomm", devices:[
+    { n:"小米 14", sc:2095, mc:6661, bv:null },
+  ]},
+  { soc:"骁龙 8 Gen 2", brand:"Qualcomm", devices:[
+    { n:"一加 Ace 3", sc:1566, mc:4791, bv:null },
   ]},
   { soc:"骁龙 8s Gen 3", brand:"Qualcomm", devices:[
     { n:"iQOO Z9 Turbo", sc:1575, mc:4072, att:172, bv:"BV1hStb6zEFh" },
@@ -44,7 +51,7 @@ const CHIPS = [
   { soc:"骁龙 8 Gen 1", brand:"Qualcomm", devices:[
     { n:"三星 Galaxy S22", sc:1010, mc:3180, att:100, bv:null },
   ]},
-  { soc:"Apple A12 Bionic", brand:"Apple", devices:[
+  { soc:"Apple A12", brand:"Apple", devices:[
     { n:"iPhone XR", sc:1276, mc:2093, bv:"BV1UP396bESi" },
   ]},
   { soc:"骁龙 835", brand:"Qualcomm", devices:[
@@ -72,6 +79,18 @@ const CHIPS = [
   { soc:"骁龙 450", brand:"Qualcomm", devices:[
     { n:"OPPO A5", sc:168, mc:762, est:true, bv:"BV1EbA6ziEHa" },
   ]},
+];
+
+/* ============================================================
+   Geekbench 7（2026-07-23 发布的新版基准）
+   ⚠️ GB7 换了参考机（i7-12700 → Ryzen 7 7700）并重构了多核算力，
+      Primate Labs 明确要求不得与 GB6 分数横向比较。
+      所以这批数据单独成表、不参与上方榜单排序 —— 别把它并进 CHIPS。
+   ============================================================ */
+const GB7 = [
+  { soc:"Apple A19", brand:"Apple", dev:"iPhone 17", sc:3069, mc:8359 },
+  { soc:"Apple A18 Pro", brand:"Apple", dev:"iPhone 16 Pro", sc:2858, mc:7732 },
+  { soc:"Apple A13", brand:"Apple", sc:1575, mc:3150 },
 ];
 
 /* ============================================================
@@ -227,6 +246,19 @@ clrEl.addEventListener("click", () => {
 const initQ = params.get("q");
 if (initQ){ qEl.value = initQ; query = initQ.trim().toLowerCase(); clrEl.hidden = false; }
 
+/* Geekbench 7 表：只输出芯片 / 单核 / 多核，不给条、不排名次，
+   避免任何人把它跟上方 GB6 的条长做视觉比较 */
+function renderGb7(){
+  const head = `<div class="gb7-head"><span>芯片</span><span>单核</span><span>多核</span></div>`;
+  const rows = GB7.map(c => `
+    <div class="gb7-row">
+      <div class="nm">${c.soc}${c.dev ? `<span class="dv">${c.dev}</span>` : ""}<span class="chip">${c.brand}</span></div>
+      <div class="num">${nf(c.sc)}</div>
+      <div class="num">${nf(c.mc)}</div>
+    </div>`).join("");
+  $("#gb7").innerHTML = head + rows;
+}
+
 /* ---------- 排序 ---------- */
 $("#seg").addEventListener("click", e => {
   const b = e.target.closest("button");
@@ -257,3 +289,4 @@ if (!THEMES.includes(initTheme)){
 applyTheme(initTheme);
 document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.k === sortKey));
 render();
+renderGb7();
